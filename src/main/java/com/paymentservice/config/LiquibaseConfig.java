@@ -1,5 +1,6 @@
 package com.paymentservice.config;
 
+import com.mongodb.MongoConfigurationException;
 import liquibase.Liquibase;
 import liquibase.database.Database;
 import liquibase.database.DatabaseFactory;
@@ -8,6 +9,7 @@ import liquibase.resource.ClassLoaderResourceAccessor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 @Configuration
 public class LiquibaseConfig {
 
@@ -36,7 +38,7 @@ public class LiquibaseConfig {
                         lb.update(new liquibase.Contexts(getContexts()));
                     }
                 } catch (Exception e) {
-                    throw new RuntimeException("Liquibase MongoDB initialization failed", e);
+                    throw new MongoConfigurationException("Liquibase MongoDB initialization failed", e);
                 }
             }
         };

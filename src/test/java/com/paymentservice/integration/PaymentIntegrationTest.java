@@ -26,7 +26,7 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
 
     private String adminToken;
     private String userToken;
-    private final Long TEST_USER_ID = 1L;
+    private static final Long TEST_USER_ID = 1L;
 
     @BeforeEach
     void setUp() {
@@ -40,7 +40,7 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    void fullPaymentFlow_Success() throws Exception {
+    void fullPaymentFlow_Success() {
         wireMockServer.stubFor(get(urlEqualTo("/api/v1/payment"))
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json").withBody("2")));
