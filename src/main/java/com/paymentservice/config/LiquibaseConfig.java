@@ -1,11 +1,12 @@
 package com.paymentservice.config;
 
 import com.mongodb.MongoConfigurationException;
-import liquibase.Liquibase;
+import liquibase.command.CommandScope;
+import liquibase.command.core.UpdateCommandStep;
+import liquibase.command.core.helpers.DbUrlConnectionCommandStep;
 import liquibase.database.Database;
 import liquibase.database.DatabaseFactory;
 import liquibase.integration.spring.SpringLiquibase;
-import liquibase.resource.ClassLoaderResourceAccessor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,9 +35,10 @@ public class LiquibaseConfig {
                     Database database = DatabaseFactory.getInstance()
                             .openDatabase(mongoUri, null, null, null, null);
 
-                    try (Liquibase lb = new Liquibase(getChangeLog(), new ClassLoaderResourceAccessor(), database)) {
-                        lb.update(new liquibase.Contexts(getContexts()));
-                    }
+                    new CommandScope(UpdateCommandStep.COMMAND_NAME)
+                            .addArgumentValue(UpdateCommandStep.CHANGELOG_FILE_ARG, getChangeLog())
+                            .addArgumentValue(DbUrlConnectionCommandStep.DATABASE_ARG, database)
+                            .execute();
                 } catch (Exception e) {
                     throw new MongoConfigurationException("Liquibase MongoDB initialization failed", e);
                 }

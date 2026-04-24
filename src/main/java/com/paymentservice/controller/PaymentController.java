@@ -17,6 +17,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * REST controller for managing payment operations.
+ * Provides endpoints for creating payments, searching records, and calculating financial totals.
+ */
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
@@ -24,12 +28,26 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
+    /**
+     * Creates a new payment process.
+     *
+     * @param requestDto details of the payment
+     * @return created payment
+     */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaymentResponseDto> create(@Valid @RequestBody PaymentRequestDto requestDto) {
         return new ResponseEntity<>(paymentService.createPayment(requestDto), HttpStatus.CREATED);
     }
 
+    /**
+     * Gets payments depending on gives arguments
+     *
+     * @param userId  user id
+     * @param orderId order id
+*    * @param status  status
+     * @return list of payments
+     */
     @GetMapping("/search")
     @PreAuthorize("hasRole('ADMIN')")
     public List<Payment> search(
@@ -39,6 +57,13 @@ public class PaymentController {
         return paymentService.searchPayments(userId, orderId, status);
     }
 
+    /**
+     * Returns total with given time limits for user
+     *
+     * @param from start date
+     * @param to   end date
+     * @return total value
+     */
     @GetMapping("/total")
     public BigDecimal getMyTotal(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
@@ -47,7 +72,13 @@ public class PaymentController {
         Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return paymentService.getTotalSum(currentUserId, from, to);
     }
-
+    /**
+     * Returns total with given time limits for all payments
+     *
+     * @param from start date \
+     * @param to   end date \
+     * @return total value
+     */
     @GetMapping("/admin/total")
     @PreAuthorize("hasRole('ADMIN')")
     public BigDecimal getAllTotal(
