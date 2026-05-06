@@ -1,7 +1,6 @@
 package com.paymentservice.integration;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
-import org.junit.jupiter.api.BeforeAll;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -34,14 +33,6 @@ public abstract class BaseIntegrationTest {
         System.setProperty("spring.liquibase.mongo-url", mongo.getReplicaSetUrl());
         System.setProperty("liquibase.mongodb.url", mongo.getReplicaSetUrl());
         System.setProperty("jwt.key", "very_long_secret_key_at_least_32_chars_12345");
-    }
-
-    @BeforeAll
-    static void start() {
-        mongo.start();
-        kafka.start();
-        wireMockServer.start();
-        System.setProperty("liquibase.mongodb.url", mongo.getReplicaSetUrl());
     }
 
     @DynamicPropertySource

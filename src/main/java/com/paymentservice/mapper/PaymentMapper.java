@@ -6,6 +6,8 @@ import com.paymentservice.entity.Payment;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.util.List;
+
 @Mapper(componentModel = "spring")
 public interface PaymentMapper {
 
@@ -13,6 +15,8 @@ public interface PaymentMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "timestamp", ignore = true)
     Payment toEntity(PaymentRequestDto dto);
+
+    List<PaymentResponseDto> toDtoList(List<Payment> entities);
 
     PaymentResponseDto toDto(Payment entity);
 }

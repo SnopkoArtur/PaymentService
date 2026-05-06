@@ -34,7 +34,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JWT_KEY: ${{secrets.JWT_KEY}}
           SERVER_PORT: ${{secrets.SERVER_PORT}}
-          USER-SERVICE_URL: ${{secrets.USER_SERVICE_URL}}
+          USER_SERVICE_URL: ${{secrets.USER_SERVICE_URL}}
           MONGO_URI: ${{secrets.MONGO_URI}}
           KAFKA_URL: ${{secrets.KAFKA_URL}}
           EXTERNAL_API_URL: ${{secrets.EXTERNAL_API_URL}}

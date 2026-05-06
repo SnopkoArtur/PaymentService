@@ -17,16 +17,18 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.bson.Document;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -55,20 +57,25 @@ class PaymentServiceImplTest {
         when(externalApiClient.processPayment()).thenReturn(2);
         when(paymentRepository.save(any())).thenReturn(payment);
         when(paymentMapper.toDto(any())).thenReturn(new PaymentResponseDto());
+        when(kafkaTemplate.send(anyString(), anyString(), any(PaymentEventDto.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
 
         paymentService.createPayment(request);
 
         assertEquals("SUCCESS", payment.getStatus());
-        verify(kafkaTemplate).send(eq("payment-events"), any(PaymentEventDto.class));
+        verify(kafkaTemplate).send(eq("payment-events"), any(), any(PaymentEventDto.class));
         verify(paymentRepository).save(payment);
     }
 
     @Test
     void createPayment_Failed() {
         Payment payment = new Payment();
+        payment.setOrderId(1L);
         when(paymentMapper.toEntity(any())).thenReturn(payment);
         when(externalApiClient.processPayment()).thenReturn(1);
         when(paymentRepository.save(any())).thenReturn(payment);
+        when(kafkaTemplate.send(anyString(), anyString(), any(PaymentEventDto.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
 
         paymentService.createPayment(new PaymentRequestDto());
 
@@ -78,32 +85,50 @@ class PaymentServiceImplTest {
 
     @Test
     void searchPayments_ByOrderId() {
-        when(paymentRepository.findAllByOrderId(1L)).thenReturn(List.of(new Payment()));
+        Payment payment = new Payment();
+        payment.setOrderId(1L);
+        Payment payment2 = new Payment();
+        payment.setOrderId(2L);
+        List<Payment> payments = List.of(payment, payment2);
+        PaymentResponseDto dto = new PaymentResponseDto();
 
-        List<Payment> result = paymentService.searchPayments(null, 1L, null);
+        when(mongoTemplate.find(any(Query.class), eq(Payment.class))).thenReturn(payments);
+        when(paymentMapper.toDtoList(payments)).thenReturn(List.of(dto));
+
+        List<PaymentResponseDto> result = paymentService.searchPayments(null, 1L, null);
 
         assertEquals(1, result.size());
-        verify(paymentRepository).findAllByOrderId(1L);
+        verify(mongoTemplate).find(any(Query.class), eq(Payment.class));
+        verify(paymentRepository, never()).findAllByOrderId(anyLong());
     }
 
     @Test
     void searchPayments_ByUserId() {
-        when(paymentRepository.findAllByUserId(1L)).thenReturn(List.of(new Payment()));
+        Payment payment = new Payment();
+        payment.setUserId(1L);
+        Payment payment2 = new Payment();
+        payment.setUserId(2L);
+        List<Payment> payments = List.of(payment, payment2);
 
-        List<Payment> result = paymentService.searchPayments(1L, null, null);
+        when(mongoTemplate.find(any(Query.class), eq(Payment.class))).thenReturn(payments);
+        when(paymentMapper.toDtoList(any())).thenReturn(List.of(new PaymentResponseDto()));
 
+        List<PaymentResponseDto> result = paymentService.searchPayments(2L, null, null);
         assertEquals(1, result.size());
-        verify(paymentRepository).findAllByUserId(1L);
+        verify(mongoTemplate).find(any(Query.class), eq(Payment.class));
     }
 
     @Test
     void searchPayments_All() {
-        when(paymentRepository.findAll()).thenReturn(List.of(new Payment(), new Payment()));
+        List<Payment> payments = List.of(new Payment(), new Payment());
 
-        List<Payment> result = paymentService.searchPayments(null, null, null);
+        when(mongoTemplate.find(any(Query.class), eq(Payment.class))).thenReturn(payments);
+        when(paymentMapper.toDtoList(any())).thenReturn(List.of(new PaymentResponseDto(), new PaymentResponseDto()));
+
+        List<PaymentResponseDto> result = paymentService.searchPayments(null, null, null);
 
         assertEquals(2, result.size());
-        verify(paymentRepository).findAll();
+        verify(mongoTemplate).find(any(Query.class), eq(Payment.class));
     }
 
     @Test
@@ -138,5 +163,34 @@ class PaymentServiceImplTest {
         BigDecimal result = paymentService.getTotalSum(1L, LocalDateTime.now(), LocalDateTime.now());
 
         assertEquals(BigDecimal.ZERO, result);
+    }
+
+    @Test
+     void createPayment_BankError_ThrowsException() {
+        when(paymentMapper.toEntity(any())).thenReturn(new Payment());
+        when(externalApiClient.processPayment()).thenThrow(feign.FeignException.class);
+        assertThrows(feign.FeignException.class, () -> paymentService.createPayment(new PaymentRequestDto()));
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void createPayment_KafkaError_ShouldStillSucceed() {
+        Payment payment = new Payment();
+        payment.setOrderId(1L);
+        payment.setStatus("SUCCESS");
+
+        when(paymentMapper.toEntity(any())).thenReturn(payment);
+        when(externalApiClient.processPayment()).thenReturn(2);
+        when(paymentRepository.save(any())).thenReturn(payment);
+        when(paymentMapper.toDto(any())).thenReturn(new PaymentResponseDto());
+
+        CompletableFuture<SendResult<String, PaymentEventDto>> future = new CompletableFuture<>();
+        future.completeExceptionally(new RuntimeException("Kafka connection lost"));
+        when(kafkaTemplate.send(anyString(), anyString(), any())).thenReturn(future);
+
+        assertDoesNotThrow(() -> paymentService.createPayment(new PaymentRequestDto()));
+
+        verify(paymentRepository).save(any());
+        assertTrue(future.isCompletedExceptionally());
     }
 }

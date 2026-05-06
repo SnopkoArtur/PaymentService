@@ -2,7 +2,6 @@ package com.paymentservice.controller;
 
 import com.paymentservice.dto.PaymentRequestDto;
 import com.paymentservice.dto.PaymentResponseDto;
-import com.paymentservice.entity.Payment;
 import com.paymentservice.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -50,11 +49,12 @@ public class PaymentController {
      */
     @GetMapping("/search")
     @PreAuthorize("hasRole('ADMIN')")
-    public List<Payment> search(
+    public ResponseEntity<List<PaymentResponseDto>> search(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Long orderId,
             @RequestParam(required = false) String status) {
-        return paymentService.searchPayments(userId, orderId, status);
+        List<PaymentResponseDto> result = paymentService.searchPayments(userId, orderId, status);
+        return ResponseEntity.ok(result);
     }
 
     /**

@@ -5,17 +5,26 @@ import com.paymentservice.dto.PaymentRequestDto;
 import com.paymentservice.entity.Payment;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.web.reactive.server.WebTestClient;
+
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class PaymentIntegrationTest extends BaseIntegrationTest {
 
@@ -144,5 +153,39 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
         paymentRepository.save(p);
     }
 
+    @Test
+    void fullPaymentFlow_ShouldSendKafkaEvent(){
+        Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(kafka.getBootstrapServers(), "test-group", "true");
+        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 
+        DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
+        Consumer<String, String> consumer = cf.createConsumer();
+        consumer.subscribe(Collections.singletonList("payment-events"));
+
+        wireMockServer.stubFor(get(urlEqualTo("/api/v1/payment"))
+                .willReturn(aResponse().withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("2")));
+
+        PaymentRequestDto request = new PaymentRequestDto();
+        request.setOrderId(100L);
+        request.setUserId(1L);
+        request.setPaymentAmount(new BigDecimal("100.00"));
+
+        webTestClient.post().uri("/api/v1/payments")
+                .header("Authorization", adminToken)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated();
+
+        ConsumerRecord<String, String> received = KafkaTestUtils.getSingleRecord(consumer, "payment-events");
+
+        assertNotNull(received);
+        assertTrue(received.value().contains("CREATE_PAYMENT"));
+        assertTrue(received.value().contains("100"));
+        assertTrue(received.value().contains("SUCCESS"));
+
+        consumer.close();
+    }
 }

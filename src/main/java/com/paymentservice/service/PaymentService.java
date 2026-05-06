@@ -2,7 +2,6 @@ package com.paymentservice.service;
 
 import com.paymentservice.dto.PaymentRequestDto;
 import com.paymentservice.dto.PaymentResponseDto;
-import com.paymentservice.entity.Payment;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -28,7 +27,7 @@ public interface PaymentService {
      * @param status  status string
      * @return filtered payments
      */
-    List<Payment> searchPayments(Long userId, Long orderId, String status);
+    List<PaymentResponseDto> searchPayments(Long userId, Long orderId, String status);
 
     /**
      * Aggregates the total sum

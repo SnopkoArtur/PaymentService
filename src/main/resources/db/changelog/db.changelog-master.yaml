@@ -13,7 +13,7 @@ databaseChangeLog:
         - createIndex:
             collectionName: payments
             keys: "{order_id: 1}"
-            options: "{name: 'order_id_1', unique: true}"
+            options: "{name: 'order_id_1'}"
 
   - changeSet:
       id: 20260424-03
